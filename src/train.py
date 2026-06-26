@@ -1,24 +1,58 @@
-#it is the dataloader
+import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
+from config import *
 from dataset import RiceCloudDataset
-from config import BATCH_SIZE
+from model import UNet
 
-# Create Dataset
+# Dataset
 dataset = RiceCloudDataset()
 
-# Create DataLoader
 train_loader = DataLoader(
     dataset,
     batch_size=BATCH_SIZE,
     shuffle=True
 )
 
-print(f"Dataset Size : {len(dataset)}")
-print(f"Total Batches : {len(train_loader)}")
+# Model
+model = UNet().to(DEVICE)
 
-# Check one batch
-cloud_batch, label_batch = next(iter(train_loader))
+# Loss
+criterion = nn.MSELoss()
 
-print(f"Cloud Batch Shape : {cloud_batch.shape}")
-print(f"Label Batch Shape : {label_batch.shape}")
+# Optimizer
+optimizer = torch.optim.Adam(
+    model.parameters(),
+    lr=LEARNING_RATE
+)
+
+print("Training Started...\n")
+
+for epoch in range(EPOCHS):
+
+    model.train()
+
+    running_loss = 0
+
+    for cloud, label in tqdm(train_loader):
+
+        cloud = cloud.to(DEVICE)
+        label = label.to(DEVICE)
+
+        prediction = model(cloud)
+
+        loss = criterion(prediction, label)
+
+        optimizer.zero_grad()
+
+        loss.backward()
+
+        optimizer.step()
+
+        running_loss += loss.item()
+
+    epoch_loss = running_loss / len(train_loader)
+
+    print(f"Epoch {epoch+1}/{EPOCHS}  Loss : {epoch_loss:.6f}")
