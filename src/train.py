@@ -2,57 +2,88 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from pathlib import Path
 
 from config import *
 from dataset import RiceCloudDataset
 from model import UNet
 
-# Dataset
-dataset = RiceCloudDataset()
 
-train_loader = DataLoader(
-    dataset,
-    batch_size=BATCH_SIZE,
-    shuffle=True
-)
+def train():
 
-# Model
-model = UNet().to(DEVICE)
+    # Dataset
+    dataset = RiceCloudDataset()
 
-# Loss
-criterion = nn.MSELoss()
+    train_loader = DataLoader(
+        dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        num_workers=2,
+        pin_memory=True
+    )
 
-# Optimizer
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=LEARNING_RATE
-)
+    # Model
+    model = UNet().to(DEVICE)
 
-print("Training Started...\n")
+    # Loss Function
+    criterion = nn.MSELoss()
 
-for epoch in range(EPOCHS):
+    # Optimizer
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=LEARNING_RATE
+    )
 
-    model.train()
+    print(f"\nTraining on: {DEVICE}")
+    print(f"Total Images : {len(dataset)}")
+    print(f"Total Batches: {len(train_loader)}\n")
 
-    running_loss = 0
+    for epoch in range(EPOCHS):
 
-    for cloud, label in tqdm(train_loader):
+        model.train()
 
-        cloud = cloud.to(DEVICE)
-        label = label.to(DEVICE)
+        running_loss = 0.0
 
-        prediction = model(cloud)
+        progress_bar = tqdm(
+            train_loader,
+            desc=f"Epoch {epoch+1}/{EPOCHS}"
+        )
 
-        loss = criterion(prediction, label)
+        for cloud, label in progress_bar:
 
-        optimizer.zero_grad()
+            cloud = cloud.to(DEVICE)
+            label = label.to(DEVICE)
 
-        loss.backward()
+            prediction = model(cloud)
 
-        optimizer.step()
+            loss = criterion(prediction, label)
 
-        running_loss += loss.item()
+            optimizer.zero_grad()
 
-    epoch_loss = running_loss / len(train_loader)
+            loss.backward()
 
-    print(f"Epoch {epoch+1}/{EPOCHS}  Loss : {epoch_loss:.6f}")
+            optimizer.step()
+
+            running_loss += loss.item()
+
+            progress_bar.set_postfix(loss=loss.item())
+
+        epoch_loss = running_loss / len(train_loader)
+
+        print(f"\nEpoch {epoch+1} Average Loss : {epoch_loss:.6f}")
+
+    # Save Model
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+    save_path = MODELS_DIR / "unet.pth"
+
+    torch.save(model.state_dict(), save_path)
+
+    print("\n================================")
+    print("Training Completed Successfully!")
+    print(f"Model saved to : {save_path}")
+    print("================================")
+
+
+if __name__ == "__main__":
+    train()
