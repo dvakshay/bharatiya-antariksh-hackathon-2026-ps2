@@ -1,20 +1,32 @@
 from pathlib import Path
 import torch
+import os
 
 # ==========================
 # Project Paths
 # ==========================
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Detect if running in Google Colab
+IS_COLAB = os.path.exists("/content")
 
-DATA_DIR = BASE_DIR / "data" / "RICE"
+if IS_COLAB:
+    BASE_DIR = Path("/content/bharatiya-antariksh-hackathon-2026-ps2")
+
+    DATA_DIR = Path("/content/drive/MyDrive/Bharatiya_Antariksh_Hackathon/RICE")
+    RESULTS_DIR = Path("/content/drive/MyDrive/Bharatiya_Antariksh_Hackathon/results")
+    MODELS_DIR = Path("/content/drive/MyDrive/Bharatiya_Antariksh_Hackathon/models")
+
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+
+    DATA_DIR = BASE_DIR / "data" / "RICE"
+    RESULTS_DIR = BASE_DIR / "results"
+    MODELS_DIR = BASE_DIR / "models"
+
 RICE1_DIR = DATA_DIR / "RICE1"
 
 CLOUD_DIR = RICE1_DIR / "cloud"
 LABEL_DIR = RICE1_DIR / "label"
-
-RESULTS_DIR = BASE_DIR / "results"
-MODELS_DIR = BASE_DIR / "models"
 
 # ==========================
 # Image Settings
