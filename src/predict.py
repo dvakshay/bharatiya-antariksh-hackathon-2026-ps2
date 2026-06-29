@@ -16,7 +16,7 @@ def load_model():
 
     model.load_state_dict(
         torch.load(
-            MODELS_DIR / "unet.pth",
+           MODELS_DIR / "best_unet.pth",
             map_location=DEVICE
         )
     )
