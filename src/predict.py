@@ -1,20 +1,22 @@
 import torch
-from pathlib import Path
-
+import matplotlib.pyplot as plt
 from PIL import Image
 import torchvision.transforms as transforms
 
 from config import *
 from model import UNet
 
-# unet architecture recreate
+
+# ==========================
+# Load Trained Model
+# ==========================
 def load_model():
 
     model = UNet().to(DEVICE)
 
     model.load_state_dict(
         torch.load(
-            MODELS_DIR / "unet.pth",
+            MODELS_DIR / "best_unet.pth",
             map_location=DEVICE
         )
     )
@@ -23,7 +25,10 @@ def load_model():
 
     return model
 
-#Load One Cloudy Image
+
+# ==========================
+# Load Image
+# ==========================
 def load_image(image_path):
 
     transform = transforms.Compose([
@@ -33,56 +38,106 @@ def load_image(image_path):
 
     image = Image.open(image_path).convert("RGB")
 
-    tensor = transform(image)
-
-    tensor = tensor.unsqueeze(0)
+    tensor = transform(image).unsqueeze(0)
 
     return image, tensor
 
-# predict cloud free images
-def predict(model, image_tensor):
 
-    image_tensor = image_tensor.to(DEVICE)
+# ==========================
+# Predict
+# ==========================
+def predict(model, tensor):
+
+    tensor = tensor.to(DEVICE)
 
     with torch.no_grad():
 
-        prediction = model(image_tensor)
+        prediction = model(tensor)
 
-    return prediction
+    return prediction.squeeze(0).cpu()
 
-#saving the cloud free image
-def save_prediction(prediction, save_path):
 
-    prediction = prediction.squeeze(0)
+# ==========================
+# Save Tensor as Image
+# ==========================
+def save_tensor_image(tensor, path):
 
-    prediction = prediction.cpu()
+    image = transforms.ToPILImage()(tensor)
 
-    prediction = transforms.ToPILImage()(prediction)
+    image.save(path)
 
-    save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    prediction.save(save_path)
+# ==========================
+# Comparison Figure
+# ==========================
+def save_comparison(cloudy, prediction, ground_truth):
 
-    print(f"Prediction saved to: {save_path}")
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    #main function ensures sequence of excution
+    fig, ax = plt.subplots(1,3, figsize=(15,5))
+
+    ax[0].imshow(cloudy)
+    ax[0].set_title("Cloudy Input")
+    ax[0].axis("off")
+
+    ax[1].imshow(transforms.ToPILImage()(prediction))
+    ax[1].set_title("Prediction")
+    ax[1].axis("off")
+
+    ax[2].imshow(ground_truth)
+    ax[2].set_title("Ground Truth")
+    ax[2].axis("off")
+
+    plt.tight_layout()
+
+    plt.savefig(RESULTS_DIR / "comparison.png")
+
+    plt.close()
+
+
+# ==========================
+# Main
+# ==========================
 def main():
-    print("Step 1: main() started")
+
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     model = load_model()
 
-    image_path = sorted(CLOUD_DIR.glob("*"))[0]
+    image_path = sorted(CLOUD_DIR.glob("*.png"))[0]
 
-    print(f"Predicting : {image_path.name}")
+    label_path = LABEL_DIR / image_path.name
 
-    original_image, image_tensor = load_image(image_path)
+    cloudy_image, tensor = load_image(image_path)
 
-    prediction = predict(model, image_tensor)
+    ground_truth = Image.open(label_path).convert("RGB")
+    ground_truth = ground_truth.resize(IMAGE_SIZE)
 
-    save_prediction(
+    prediction = predict(model, tensor)
+
+    save_tensor_image(
         prediction,
         RESULTS_DIR / "prediction.png"
     )
+
+    cloudy_image.save(
+        RESULTS_DIR / "cloudy.png"
+    )
+
+    ground_truth.save(
+        RESULTS_DIR / "ground_truth.png"
+    )
+
+    save_comparison(
+        cloudy_image,
+        prediction,
+        ground_truth
+    )
+
+    print("="*50)
+    print("Prediction Completed Successfully!")
+    print(f"Results saved in : {RESULTS_DIR}")
+    print("="*50)
 
 
 if __name__ == "__main__":
